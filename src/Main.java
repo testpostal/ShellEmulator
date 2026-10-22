@@ -1,10 +1,18 @@
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Эмулятор командной строки UNIX-подобной ОС.
+ * Вариант №17, Этап 2: Конфигурация.
+ */
 public class Main {
 
     private static final int MAX_CD_ARGS = 1;
+    private static final int REQUIRED_ARGS = 2;
 
     public static String expandVariables(String input) {
         if (input == null || input.isEmpty()) {
@@ -41,7 +49,7 @@ public class Main {
         if ("cd".equals(command)) {
             if (parts.length > (MAX_CD_ARGS + 1)) {
                 System.out.println("Ошибка cd: слишком много аргументов");
-                return true;
+                return false; // Скрипт по заданию падает при первой ошибке! (Требование 2)
             }
             System.out.println("Команда: cd");
             for (int i = 1; i < parts.length; i++) {
@@ -55,24 +63,71 @@ public class Main {
         }
 
         System.out.println("Ошибка: неизвестная команда " + command);
+        return false; // Прерываем выполнение скрипта при неизвестной команде (Требование 2)
+    }
+
+    /**
+     * Построчное выполнение стартового скрипта с отображением ввода и вывода (Требование 2).
+     */
+    private static boolean runStartScript(String scriptPath, String prompt) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(scriptPath))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) {
+                    continue;
+                }
+                // Имитируем диалог: принудительно выводим промпт и саму команду на экран!
+                System.out.print(prompt + line);
+
+                String expanded = expandVariables(line);
+                if (!executeCommand(expanded.split("\\s+"))) {
+                    System.out.println("[ОШИБКА] Выполнение стартового скрипта прервано из-за ошибки.");
+                    return false;
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("\n[ОШИБКА] Ошибка чтения стартового скрипта: " + e.getMessage());
+            return false;
+        }
         return true;
     }
 
     public static void main(String[] args) {
+        // 1. Проверяем наличие аргументов командной строки (Требование 1)
+        if (args.length < REQUIRED_ARGS) {
+            System.out.println("Ошибка: Передайте <путь_к_VFS> и <путь_к_скрипту>");
+            return;
+        }
+
+        String vfsPath = args[0];
+        String scriptPath = args[1];
+
+        // 2. Обязательный отладочный вывод всех параметров при запуске (Цель этапа 2)
+        System.out.println("=== ОТЛАДКА КОНФИГУРАЦИИ ===");
+        System.out.println("Путь к VFS: " + vfsPath);
+        System.out.println("Путь к стартовому скрипту: " + scriptPath);
+        System.out.println("============================\n");
+
         Scanner scanner = new Scanner(System.in);
         String username = System.getenv("USER");
-        if (username == null) {
-            username = System.getenv("USERNAME");
-        }
+        if (username == null) username = System.getenv("USERNAME");
         String hostname = System.getenv("HOSTNAME");
-        if (hostname == null) {
-            hostname = System.getenv("COMPUTERNAME");
-        }
+        if (hostname == null) hostname = System.getenv("COMPUTERNAME");
+
         username = (username != null) ? username : "user";
         hostname = (hostname != null) ? hostname : "host";
+        String prompt = username + "@" + hostname + ":~$ ";
 
+        // 3. Сначала выполняем стартовый скрипт (Требование 2)
+        if (!runStartScript(scriptPath, prompt)) {
+            return; // Завершаем работу, если скрипт упал с ошибкой
+        }
+
+        // 4. Затем переходим в обычный интерактивный режим REPL
+        System.out.println("\n=== ЗАПУСК ИНТЕРАКТИВНОГО ЭМУЛЯТОРА ===");
         while (true) {
-            System.out.print(username + "@" + hostname + ":~$ ");
+            System.out.print(prompt);
             if (!scanner.hasNextLine()) {
                 break;
             }
