@@ -12,26 +12,27 @@ echo.
 echo ========================================================
 echo                       МЕНЮ ЗАПУСКА
 echo ========================================================
-echo [1] Обычный запуск
-echo [2] Запуск стартового скрипта автотестов файла tests.ini
+echo [1] Интерактивный режим (Свободная строка)
+echo [2] Прогон стартового скрипта автотестов (tests.ini)
 echo ========================================================
 echo.
 
 set /p choice="Выберите вариант запуска (1 или 2) и нажмите Enter: "
 
+if not exist tests\empty.ini echo # Пустой скрипт > tests\empty.ini
+
 if "%choice%"=="1" (
     echo.
     echo [Система] Запуск в интерактивном режиме...
-
-    if not exist tests\empty.ini echo # Пустой скрипт > tests\empty.ini
-    "%JAVA_BIN%\java.exe" -cp out Main virtual_fs.zip tests\empty.ini
+    "%JAVA_BIN%\java.exe" -cp out Main vfs_large.zip tests\empty.ini
 ) else if "%choice%"=="2" (
     echo.
-    echo [Система] Запуск прогона стартового скрипта...
-    "%JAVA_BIN%\java.exe" -cp out Main virtual_fs.zip tests\tests.ini
+    echo [Система] Запуск тестов стартового скрипта...
+    "%JAVA_BIN%\java.exe" -cp out Main vfs_large.zip tests\tests.ini
 ) else (
     echo [ОШИБКА] Неверный выбор! Завершение работы.
 )
 
 pause
+
 
