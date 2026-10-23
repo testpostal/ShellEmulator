@@ -12,7 +12,7 @@ public class Main {
     private static String currentDir = "/";
 
     /**
-     * Этап 3: Загрузка VFS из ZIP-архива напрямую в память (без распаковки на диск)
+     * Загрузка VFS из ZIP-архива напрямую в память
      */
     public static void loadVFS(String zipPath) throws IOException {
         File file = new File(zipPath);
@@ -78,7 +78,7 @@ public class Main {
     }
 
     /**
-     * Разбор и выполнение команд (Заглушки с интеграцией проверки VFS).
+     * Разбор и выполнение команд.
      */
     public static boolean executeCommand(String[] parts) {
         if (parts.length == 0 || parts[0].isEmpty()) {
@@ -86,26 +86,123 @@ public class Main {
         }
         String command = parts[0];
 
-
         if ("ls".equals(command)) {
-            System.out.println("[Заглушка ls] Текущий виртуальный путь: " + currentDir);
-            System.out.println("[Заглушка ls] Всего объектов в памяти VFS: " + vfs.size());
-            for (int i = 1; i < parts.length; i++) {
-                System.out.println("Аргумент: " + parts[i]);
+            String prefix = currentDir.equals("/") ? "/" : currentDir + "/";
+
+            for (String path : vfs.keySet()) {
+                if (path.equals("/") || path.equals(currentDir)) {
+                    continue;
+                }
+                if (path.startsWith(prefix)) {
+                    String sub = path.substring(prefix.length());
+                    if (!sub.contains("/")) {
+                        System.out.print(sub + "  ");
+                    }
+                }
             }
+            System.out.println();
             return true;
         }
-
 
         if ("cd".equals(command)) {
             if (parts.length > (MAX_CD_ARGS + 1)) {
                 System.out.println("Ошибка cd: слишком много аргументов");
                 return false;
             }
-            System.out.println("[Заглушка cd] Запрошен переход.");
-            for (int i = 1; i < parts.length; i++) {
-                System.out.println("Аргумент (целевой путь): " + parts[i]);
+
+            String target = (parts.length == 2) ? parts[1] : "/";
+            String nextDir = currentDir;
+
+            if (target.equals("/")) {
+                nextDir = "/";
+            } else if (target.equals(".")) {
+                nextDir = currentDir;
+            } else if (target.equals("..")) {
+                if (!currentDir.equals("/")) {
+                    int lastSlash = currentDir.lastIndexOf("/");
+                    nextDir = currentDir.substring(0, lastSlash);
+                    if (nextDir.isEmpty()) {
+                        nextDir = "/";
+                    }
+                }
+            } else {
+                if (target.startsWith("/")) {
+                    nextDir = target;
+                } else {
+                    nextDir = currentDir.equals("/") ? "/" + target : currentDir + "/" + target;
+                }
             }
+
+            if (nextDir.endsWith("/") && nextDir.length() > 1) {
+                nextDir = nextDir.substring(0, nextDir.length() - 1);
+            }
+
+            if (vfs.containsKey(nextDir)) {
+                currentDir = nextDir;
+            } else {
+                System.out.println("Ошибка cd: директория не найдена: " + target);
+                return false;
+            }
+            return true;
+        }
+
+        if ("head".equals(command)) {
+            if (parts.length < 2) {
+                System.out.println("Ошибка head: укажите файл");
+                return false;
+            }
+            String targetFile = parts[1];
+            String absFilePath = targetFile.startsWith("/") ? targetFile :
+                    (currentDir.equals("/") ? "/" + targetFile : currentDir + "/" + targetFile);
+
+            if (!vfs.containsKey(absFilePath)) {
+                System.out.println("Ошибка head: файл не найден: " + targetFile);
+                return false;
+            }
+
+            String content = vfs.get(absFilePath);
+            try (BufferedReader br = new BufferedReader(new StringReader(content))) {
+                String line;
+                int count = 0;
+                while ((line = br.readLine()) != null && count < 10) {
+                    System.out.println(line);
+                    count++;
+                }
+            } catch (IOException e) {
+                System.out.println("Ошибка чтения файла: " + e.getMessage());
+                return false;
+            }
+            return true;
+        }
+
+        if ("cal".equals(command)) {
+            Calendar cal = Calendar.getInstance();
+            int year = cal.get(Calendar.YEAR);
+            int month = cal.get(Calendar.MONTH);
+
+            String[] months = {"Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+                    "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"};
+
+            System.out.println("    " + months[month] + " " + year);
+            System.out.println("Пн Вт Ср Чт Пт Сб Вс");
+
+            Calendar firstDay = Calendar.getInstance();
+            firstDay.set(year, month, 1);
+
+            int dayOfWeek = firstDay.get(Calendar.DAY_OF_WEEK);
+            int startOffset = (dayOfWeek == Calendar.SUNDAY) ? 6 : dayOfWeek - 2;
+            int maxDays = firstDay.getActualMaximum(Calendar.DAY_OF_MONTH);
+
+            for (int i = 0; i < startOffset; i++) {
+                System.out.print("   ");
+            }
+            for (int day = 1; day <= maxDays; day++) {
+                System.out.printf("%2d ", day);
+                if ((day + startOffset) % 7 == 0) {
+                    System.out.println();
+                }
+            }
+            System.out.println("\n");
             return true;
         }
 
@@ -117,6 +214,9 @@ public class Main {
         return false;
     }
 
+    /**
+     * Построчное выполнение стартового скрипта с отображением ввода и вывода.
+     */
     private static boolean runStartScript(String scriptPath, String basePrompt) {
         try (BufferedReader reader = new BufferedReader(new FileReader(scriptPath))) {
             String line;
@@ -142,6 +242,9 @@ public class Main {
         return true;
     }
 
+    /**
+     * Точка входа в приложение, инициализация конфигурации и запуск REPL.
+     */
     public static void main(String[] args) {
         if (args.length < REQUIRED_ARGS) {
             System.out.println("Ошибка: Передайте <путь_к_VFS> и <путь_к_скрипту>");
@@ -156,13 +259,12 @@ public class Main {
         System.out.println("Путь к стартовому скрипту: " + scriptPath);
         System.out.println("============================\n");
 
-
         try {
             loadVFS(vfsPath);
             System.out.println("[УСПЕХ] VFS успешно загружена в память. Элементов: " + vfs.size() + "\n");
         } catch (IOException e) {
             System.out.println("[ОШИБКА ЗАГРУЗКИ VFS]: " + e.getMessage());
-            return; // Прерываемся при ошибке загрузки VFS по требованию 3.3
+            return;
         }
 
         Scanner scanner = new Scanner(System.in);
