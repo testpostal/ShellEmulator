@@ -206,6 +206,40 @@ public class Main {
             return true;
         }
 
+        if ("mv".equals(command)) {
+            if (parts.length < 3) {
+                System.out.println("Ошибка mv: укажите источник и приемник");
+                return false;
+            }
+            String src = parts[1];
+            String dest = parts[2];
+
+            String absSrc = src.startsWith("/") ? src : (currentDir.equals("/") ? "/" + src : currentDir + "/" + src);
+            String absDest = dest.startsWith("/") ? dest : (currentDir.equals("/") ? "/" + dest : currentDir + "/" + dest);
+
+            if (vfs.containsKey(absSrc)) {
+                String content = vfs.remove(absSrc);
+                vfs.put(absDest, content);
+                System.out.println("Объект успешно перемещен.");
+            } else {
+                System.out.println("Ошибка mv: файл или папка не найдены: " + src);
+                return false;
+            }
+            return true;
+        }
+
+        if ("help".equals(command)) {
+            System.out.println("Доступные команды эмулятора:");
+            System.out.println("ls          - Просмотр содержимого текущей директории");
+            System.out.println("cd <путь>   - Переход в другую директорию");
+            System.out.println("head <файл> - Вывод первых 10 строк текстового файла");
+            System.out.println("cal         - Отображение календаря на текущий месяц");
+            System.out.println("mv <из> <в> - Перемещение объекта в памяти VFS");
+            System.out.println("help        - Вывод справки по командам");
+            System.out.println("exit        - Завершение сессии эмулятора");
+            return true;
+        }
+
         if ("exit".equals(command)) {
             return false;
         }
@@ -300,3 +334,4 @@ public class Main {
         }
     }
 }
+
